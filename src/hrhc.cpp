@@ -71,7 +71,7 @@ void HRHC::DriveLoop()
             Input input = GetNextInput();
             if (trajp_.best_trajectory_index() < 0)
             {
-                input.set_v(0.5);
+                input.set_v(0.2);
             }
             drive_msg.header.stamp = ros::Time::now();
             drive_msg.drive.speed = input.v();
@@ -89,7 +89,7 @@ Input HRHC::GetNextInput()
     if (inputs_idx_ >= current_inputs_.size())
     {
         // ROS_ERROR("Trajectory complete!");
-        return Input(0.5,-0.05);
+        return Input(0.2,-0.05);
     }
     return current_inputs_[inputs_idx_];
 }

@@ -41,7 +41,8 @@ Trajectory::~Trajectory()
 
 bool Trajectory::ReadCMAES(string filename)
 {
-    string path = ros::package::getPath("milestone-3")+"/"+filename;
+    // string path = ros::package::getPath("milestone-3")+"/"+filename;
+    string path = "/home/saumya/MPC_ws/src/F110-Final/"+filename;
     cout << path << endl;
     ifstream input(path);
     string coordX, coordY;

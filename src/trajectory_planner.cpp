@@ -48,7 +48,8 @@ TrajectoryPlanner::~TrajectoryPlanner()
 
 void TrajectoryPlanner::ReadTrajectories()
 {
-    string path = ros::package::getPath("milestone-3")+"/csv/local_traj_50.csv";
+    // string path = ros::package::getPath("milestone-3")+"/csv/local_traj_50.csv";
+    string path = "/home/saumya/MPC_ws/src/F110-Final/csv/local_traj_50_fwd_rev.csv";
     cout << path << endl;
     ifstream input(path);
     string coordX, coordY;
@@ -230,7 +231,7 @@ void TrajectoryPlanner::SelectLane(const geometry_msgs::Pose pose, OccGrid &occ_
             break;
         }
     }
-    std::cout << distance_from_switch_ << std::endl;
+    std::cout << "distance from switch " << distance_from_switch_ << std::endl;
 }
 
 vector<State> TrajectoryPlanner::best_minipath()
