@@ -4,7 +4,7 @@ q0: 10.0
 q1: 10.0
 q2: 0.0
 
-r0: 1
+r0: 0.001
 r1: 0.00
 
 pose_topic: "/odom"
@@ -23,8 +23,9 @@ switch_distance_threshold: 3.0
 
 #traj_planner
 num_traj: 20
-close_weight: 1.5
+close_weight: 0.5
 MAX_HORIZON: 50
+rev_threshold: 2
 
 # Lanes
 lane_0: "csv/temp.csv"

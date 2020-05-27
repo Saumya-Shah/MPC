@@ -4,7 +4,7 @@
 using namespace std;
 namespace fs = experimental::filesystem;
 // FIXME: change lookahead to var
-TrajectoryPlanner::TrajectoryPlanner(ros::NodeHandle &nh) : distance_from_switch_(0)
+TrajectoryPlanner::TrajectoryPlanner(ros::NodeHandle &nh) : distance_from_switch_(0), prev_rev_(false)
 {
 
     int horizon;
@@ -16,6 +16,7 @@ TrajectoryPlanner::TrajectoryPlanner(ros::NodeHandle &nh) : distance_from_switch
     nh.getParam("/cmaes_lookahead_1", lookahead_1);
     nh.getParam("/cmaes_lookahead_2", lookahead_2);
     nh.getParam("/switch_distance_threshold", switch_distance_threshold_);
+    nh.getParam("/rev_threshold", rev_threshold_);
 
     std::string lane_file;
     std::string lane_name;
@@ -104,12 +105,16 @@ void TrajectoryPlanner::Trajectory2world(const geometry_msgs::Pose &current_pose
 
 int TrajectoryPlanner::BestTrajectory(OccGrid &occ_grid, const geometry_msgs::Pose &current_pose)
 {
+    float min_distance = std::numeric_limits<float>::max();
     float max_distance = -std::numeric_limits<float>::max();
+
     int furtherest_index = -1;
     int best = -1;
+    int best1 = -1;
+    int best2 = -1;
     pair<float,float> closest_cmaes;
     pair<float,float> car_pose(current_pose.position.x,current_pose.position.y);
-    for (int ii= 0; ii<num_traj_; ii++)
+    for (int ii= 0; ii<num_traj_/2; ii++)
     {
         bool collision = true;
 
@@ -139,7 +144,71 @@ int TrajectoryPlanner::BestTrajectory(OccGrid &occ_grid, const geometry_msgs::Po
             float dist1 = Transforms::CalcDist(end_point,temp);
             float dist2 = Transforms::CalcDist(temp,car_pose);
             collision = occ_grid.CheckCollision(end_point,temp);
-            float eff_dist = dist2-close_weight*dist1;
+            // float eff_dist = dist2-close_weight*dist1;
+            float eff_dist = dist1;
+            bool check;
+            if (ind_car>40)
+            {
+                check = false;
+            }
+            if (eff_dist<min_distance && collision)
+            {
+                if (check)
+                {
+                    if (ind>(furtherest_index-1))
+                    {
+                        min_distance = eff_dist;
+                        closest_cmaes = temp;
+                        best1 = ii;
+                        furtherest_index = ind;
+                    }
+                }
+
+                else
+                {
+                    min_distance = eff_dist;
+                    closest_cmaes = temp;
+                    best1 = ii;
+                    furtherest_index = ind;
+                }
+
+
+            }
+        }
+
+    }
+    
+    for (int ii = (int){num_traj_/2}; ii<num_traj_; ii++)
+    {
+        bool collision = true;
+
+        for (int l=0; l<horizon_ - 1; l++)
+        {
+            collision = occ_grid.CheckCollision(trajectories_world[max_horizon_*ii+l],trajectories_world[max_horizon_*ii+l+1]);
+            if (!collision)
+            {
+                //cout<<ii<<" collision"<<endl;
+                break;
+            }
+            //cout << l << ",";
+        }
+
+        // 0 1.44218
+
+        pair<pair<float,float>,int> tp = lanes_[current_lane_].FindClosest(car_pose);
+        int ind_car = tp.second;
+        if (collision)
+        {
+            // cout<<ii<<" no_collision"<<endl;
+            pair<float,float> end_point = trajectories_world[max_horizon_*ii + horizon_-1];
+            pair<pair<float,float>,int> ans = lanes_[current_lane_].FindClosest(end_point);
+
+            pair <float,float> temp = ans.first;
+            int ind = ans.second;
+            float dist1 = Transforms::CalcDist(end_point,temp);
+            float dist2 = Transforms::CalcDist(temp,car_pose);
+            collision = occ_grid.CheckCollision(end_point,temp);
+            float eff_dist = dist1;
             bool check;
             if (ind_car>40)
             {
@@ -153,7 +222,7 @@ int TrajectoryPlanner::BestTrajectory(OccGrid &occ_grid, const geometry_msgs::Po
                     {
                         max_distance = eff_dist;
                         closest_cmaes = temp;
-                        best = ii;
+                        best2 = ii;
                         furtherest_index = ind;
                     }
                 }
@@ -162,7 +231,7 @@ int TrajectoryPlanner::BestTrajectory(OccGrid &occ_grid, const geometry_msgs::Po
                 {
                     max_distance = eff_dist;
                     closest_cmaes = temp;
-                    best = ii;
+                    best2 = ii;
                     furtherest_index = ind;
                 }
 
@@ -171,6 +240,36 @@ int TrajectoryPlanner::BestTrajectory(OccGrid &occ_grid, const geometry_msgs::Po
         }
 
     }
+    best = best1;
+    
+    if (min_distance >  max_distance + rev_threshold_ || best1 == -1)
+    {
+        prev_rev_ = true;
+        best = best2;
+    }
+    else if (prev_rev_)
+    {
+        if (min_distance >  max_distance - rev_threshold_ || best1 == -1)
+        {
+            prev_rev_ = true;
+            best = best2;
+        }
+        else
+        {
+            prev_rev_ = false;
+            best = best1;
+        }
+        
+    }
+    else if (best1 != -1)
+    {
+        prev_rev_ = false;
+        best = best1;
+    }
+    cout<<best<<endl;
+    cout<<"prev"<<prev_rev_<<endl;
+    
+    
     if (!cmaes_point_pushed_)
     {
         geometry_msgs::Point curr_point;
@@ -231,7 +330,7 @@ void TrajectoryPlanner::SelectLane(const geometry_msgs::Pose pose, OccGrid &occ_
             break;
         }
     }
-    std::cout << "distance from switch " << distance_from_switch_ << std::endl;
+    // std::cout << "distance from switch " << distance_from_switch_ << std::endl;
 }
 
 vector<State> TrajectoryPlanner::best_minipath()

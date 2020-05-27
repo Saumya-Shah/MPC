@@ -53,6 +53,8 @@ private:
     float close_weight;
     int max_horizon_;
     int num_traj_;
+    float rev_threshold_;
+    bool prev_rev_;
     State best_cmaes_point_;
     vector<State> best_minipath_;
     unsigned int current_lane_ = 0;
